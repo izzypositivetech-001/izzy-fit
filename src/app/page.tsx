@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 import React from "react";
-import { Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import UserPrograms from "@/components/UserPrograms";
 
 const HomePage = () => {
@@ -96,11 +96,11 @@ const HomePage = () => {
               {/* IMAGE CONTENT */}
               <div className="relative aspect-square max-w-lg mx-auto">
                 <div className="relative overflow-hidden rounded-lg bg-cyber-black">
-                  <img
-                    src="/hero1.jpg"
+                 <Image 
+                      src="/hero1.jpg"
                     alt="hero"
                     className="object-cover object-center w-full h-full transition-transform duration-500 ease-in-out transform hover:scale-105"
-                  />
+                 />
 
                   {/* SCAN LINE */}
                   <div
