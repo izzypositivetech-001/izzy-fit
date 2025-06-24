@@ -12,7 +12,7 @@ const GenerateProgramPage = () => {
   const [callActive, setCallActive] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<{content: string; role: 'user' | "assistant"}[]>([]);
   const [callEnded, setCallEnded] = useState(false);
 
   const { user } = useUser();
@@ -88,14 +88,27 @@ const GenerateProgramPage = () => {
       console.log("AI stopped Speaking");
       setIsSpeaking(false);
     };
-    const handleMessage = (message: any) => {
+    type VapiMessage = {
+  type: 'transcript';
+  transcriptType: 'final' | 'interim';
+  transcript: string;
+  role: 'user' | 'assistant';
+};
+    const handleMessage = (message: VapiMessage) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { content: message.transcript, role: message.role };
         setMessages((prev) => [...prev, newMessage]);
       }
     };
 
-    const handleError = (error: any) => {
+    type VapiError = {
+  message?: string;
+  code?: string;
+  stack?: string;
+  [key: string]: unknown;
+};
+
+    const handleError = (error: VapiError) => {
       console.log("Vapi Error", error);
       setConnecting(false);
       setCallActive(false);
