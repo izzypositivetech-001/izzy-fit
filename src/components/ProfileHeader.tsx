@@ -15,6 +15,8 @@ const ProfileHeader = ({ user }: { user: UserResource | null | undefined }) => {
               <Image 
                   src={user.imageUrl}
                 alt={user.fullName || "Profile"}
+                width={100}
+                height={100}
                 className="w-full h-full object-cover"
               />
             </div>
