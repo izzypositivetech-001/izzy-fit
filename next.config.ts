@@ -10,6 +10,12 @@ const nextConfig: import('next').NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "images.clerk.dev",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "randomuser.me",
         port: "",
         pathname: "/**",
