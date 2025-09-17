@@ -36,7 +36,7 @@ const Navbar = () => {
                     <span className=""> Generate</span>
                 </Link>
 
-                <Link href="/about" className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
+                <Link href="/profile" className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
                     <UserIcon size={16} />
                     <span className=""> Profile</span>
                 </Link>

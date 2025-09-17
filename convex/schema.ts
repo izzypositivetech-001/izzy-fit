@@ -7,6 +7,7 @@ export default defineSchema({
     email: v.string(),
     image: v.optional(v.string()),
     clerkId: v.string(),
+    createdAt: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"]),
 
   plans: defineTable({
@@ -20,8 +21,8 @@ export default defineSchema({
           routines: v.array(
             v.object({
               name: v.string(),
-              sets: v.optional(v.number()),
-              reps: v.optional(v.number()),
+              sets: v.number(),
+              reps: v.number(),
               duration: v.optional(v.string()),
               description: v.optional(v.string()),
               exercises: v.optional(v.array(v.string())),

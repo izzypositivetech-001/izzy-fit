@@ -15,6 +15,7 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
     if (!webhookSecret) {
+      console.error("Missing CLERK_WEBHOOK_SECRET environment variable");
       throw new Error("Missing CLERK_WEBHOOK_SECRET environment variable");
     }
 
@@ -23,14 +24,14 @@ http.route({
     const svix_timestamp = request.headers.get("svix-timestamp");
 
     if (!svix_id || !svix_signature || !svix_timestamp) {
-      return new Response("No svix headers found", {
-        status: 400,
-      });
+      console.error("Missing Svix headers:", { svix_id, svix_signature, svix_timestamp });
+      return new Response("No svix headers found", { status: 400 });
     }
 
     const payload = await request.json();
-    const body = JSON.stringify(payload);
+    console.log("Clerk Webhook Payload:", JSON.stringify(payload, null, 2)); // Log payload for debugging
 
+    const body = JSON.stringify(payload);
     const wh = new Webhook(webhookSecret);
     let evt: WebhookEvent;
 
@@ -42,51 +43,38 @@ http.route({
       }) as WebhookEvent;
     } catch (err) {
       console.error("Error verifying webhook:", err);
-      return new Response("Error occurred", { status: 400 });
+      return new Response("Error verifying webhook", { status: 400 });
     }
 
     const eventType = evt.type;
+    console.log("Processing Clerk event:", eventType);
 
-    if (eventType === "user.created") {
+    if (eventType === "user.created" || eventType === "user.updated") {
       const { id, first_name, last_name, image_url, email_addresses } = evt.data;
 
-      const email = email_addresses[0].email_address;
+      if (!id || !email_addresses?.[0]?.email_address) {
+        console.error("Invalid Clerk payload:", { id, email_addresses });
+        return new Response("Invalid Clerk payload", { status: 400 });
+      }
 
-      const name = `${first_name || ""} ${last_name || ""}`.trim();
+      const email = email_addresses[0].email_address;
+      const name = `${first_name || ""} ${last_name || ""}`.trim() || "Unknown User";
 
       try {
         await ctx.runMutation(api.users.syncUser, {
           email,
           name,
-          image: image_url,
+          image: image_url || undefined,
           clerkId: id,
         });
+        console.log(`User ${eventType === "user.created" ? "created" : "updated"}:`, { clerkId: id, email, name });
       } catch (error) {
-        console.log("Error creating user:", error);
-        return new Response("Error creating user", { status: 500 });
+        console.error(`Error ${eventType === "user.created" ? "creating" : "updating"} user:`, error);
+        return new Response(`Error ${eventType === "user.created" ? "creating" : "updating"} user`, { status: 500 });
       }
     }
 
-    if (eventType === "user.updated") {
-      const { id, email_addresses, first_name, last_name, image_url } = evt.data;
-
-      const email = email_addresses[0].email_address;
-      const name = `${first_name || ""} ${last_name || ""}`.trim();
-
-      try {
-        await ctx.runMutation(api.users.updateUser, {
-          clerkId: id,
-          email,
-          name,
-          image: image_url,
-        });
-      } catch (error) {
-        console.log("Error updating user:", error);
-        return new Response("Error updating user", { status: 500 });
-      }
-    }
-
-    return new Response("Webhooks processed successfully", { status: 200 });
+    return new Response("Webhook processed successfully", { status: 200 });
   }),
 });
 
@@ -108,7 +96,6 @@ function validateWorkoutPlan(plan: any) {
 
 // validate diet plan to ensure it strictly follows schema
 function validateDietPlan(plan: any) {
-  // only keep the fields we want
   const validatedPlan = {
     dailyCalories: plan.dailyCalories,
     meals: plan.meals.map((meal: any) => ({
@@ -125,6 +112,7 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     try {
       const payload = await request.json();
+      console.log("VAPI PAYLOAD RECEIVED:", JSON.stringify(payload, null, 2));
 
       const {
         user_id,
@@ -138,8 +126,18 @@ http.route({
         dietary_restrictions,
       } = payload;
 
-      console.log("Payload is here:", payload);
+      if (!user_id) {
+        console.error("Missing user_id in VAPI payload");
+        return new Response(
+          JSON.stringify({ success: false, error: "Missing user_id" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
 
+      
+      // console.log("Payload is here:", payload);
+      
+      
       const model = genAI.getGenerativeModel({
         model: "gemini-2.0-flash-001",
         generationConfig: {

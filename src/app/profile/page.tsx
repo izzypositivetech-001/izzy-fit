@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useConvexAuth } from "convex/react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useEffect } from "react";
 import ProfileHeader from "@/components/ProfileHeader";
@@ -21,7 +21,12 @@ import {
 const ProfilePage = () => {
   const { isLoaded: clerkLoaded, user } = useUser();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const allPlans = useQuery(api.plans.getUserPlans);
+  const repairPlans = useMutation(api.plans.repairPlaceholderPlans);
+  const ready = !!user && isAuthenticated && !authLoading && clerkLoaded;
+  const allPlans = useQuery(
+    api.plans.getUserPlans,
+    ready ? { userId: user!.id } : "skip"
+  );
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,6 +39,23 @@ const ProfilePage = () => {
       }
     }
   }, [allPlans, selectedPlanId]);
+
+  // One-time repair: if we see zero plans, try fixing placeholder plans
+  useEffect(() => {
+    const runRepair = async () => {
+      if (user && Array.isArray(allPlans) && allPlans.length === 0) {
+        try {
+          const res = await repairPlans({ userId: user.id });
+          if (res?.repairedCount > 0) {
+            console.log("Repaired placeholder plans:", res.repairedCount);
+          }
+        } catch (e) {
+          console.warn("Repair failed:", e);
+        }
+      }
+    };
+    runRepair();
+  }, [user, allPlans, repairPlans]);
 
   // Loading states combining Clerk and Convex auth
   if (authLoading || !clerkLoaded) {
