@@ -14,16 +14,19 @@ const convex = new ConvexReactClient(
 );
 
 function ConvexClerkProvider({ children } : { children: React.ReactNode }) {
+  // Use a fallback key if not available (won't actually work at runtime, but allows build to complete)
+  const publishableKey = clerkPublishableKey || "pk_test_placeholder";
+
   // Validate that required environment variables are set
-  if (!convexUrl) {
-    console.warn("NEXT_PUBLIC_CONVEX_URL is not set");
-  }
   if (!clerkPublishableKey) {
-    console.warn("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set");
+    console.warn("⚠️ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. Clerk authentication will not work.");
+  }
+  if (!convexUrl) {
+    console.warn("⚠️ NEXT_PUBLIC_CONVEX_URL is not set. Convex database will not work.");
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey || ""}>
+    <ClerkProvider publishableKey={publishableKey}>
       <ConvexProviderWithClerk 
         client={convex} 
         useAuth={useAuth}
