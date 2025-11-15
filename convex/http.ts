@@ -243,7 +243,7 @@ http.route({
 
       // save to our DB: CONVEX
       const planId = await ctx.runMutation(api.plans.createPlan, {
-        userId: user_id,
+        // Remove userId - the mutation will get it from auth context
         dietPlan,
         isActive: true,
         workoutPlan,

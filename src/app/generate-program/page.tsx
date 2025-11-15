@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { vapi } from "@/lib/vapi";
+import { vapi, getVapi } from "@/lib/vapi";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -14,14 +14,27 @@ const GenerateProgramPage = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<{ content: string; role: "user" | "assistant" }[]>([]);
   const [callEnded, setCallEnded] = useState(false);
+  const [vapiInstance, setVapiInstance] = useState<any>(null);
 
   const { user } = useUser();
   const router = useRouter();
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
 
+  // Initialize Vapi instance on client side
+  useEffect(() => {
+    const instance = getVapi() || vapi;
+    if (instance) {
+      setVapiInstance(instance);
+    } else {
+      console.warn("Vapi instance is not available");
+    }
+  }, []);
+
   // Enhanced error handling for the new @vapi-ai/web SDK
   useEffect(() => {
+    if (!vapiInstance) return;
+
     const handleError = (error: any) => {
       console.log("Raw Vapi Error:", error);
       
@@ -60,12 +73,12 @@ const GenerateProgramPage = () => {
       setCallActive(false);
     };
 
-    vapi.on("error", handleError);
+    vapiInstance.on("error", handleError);
 
     return () => {
-      vapi.off("error", handleError);
+      vapiInstance.off("error", handleError);
     };
-  }, []);
+  }, [vapiInstance]);
 
   // Auto-scroll messages
   useEffect(() => {
@@ -87,6 +100,8 @@ const GenerateProgramPage = () => {
 
   // Setup Vapi event listeners with new SDK compatibility
   useEffect(() => {
+    if (!vapiInstance) return;
+
     const handleCallStart = () => {
       console.log("Call started");
       setConnecting(false);
@@ -143,11 +158,11 @@ const GenerateProgramPage = () => {
 
     // Event listener setup for new SDK
     try {
-      vapi.on("call-start", handleCallStart);
-      vapi.on("call-end", handleCallEnd);
-      vapi.on("speech-start", handleSpeechStart);
-      vapi.on("speech-end", handleSpeechEnd);
-      vapi.on("message", handleMessage);
+      vapiInstance.on("call-start", handleCallStart);
+      vapiInstance.on("call-end", handleCallEnd);
+      vapiInstance.on("speech-start", handleSpeechStart);
+      vapiInstance.on("speech-end", handleSpeechEnd);
+      vapiInstance.on("message", handleMessage);
     } catch (error) {
       console.warn("Error setting up Vapi listeners:", error);
     }
@@ -155,21 +170,26 @@ const GenerateProgramPage = () => {
     // Cleanup
     return () => {
       try {
-        vapi.off("call-start", handleCallStart);
-        vapi.off("call-end", handleCallEnd);
-        vapi.off("speech-start", handleSpeechStart);
-        vapi.off("speech-end", handleSpeechEnd);
-        vapi.off("message", handleMessage);
+        vapiInstance.off("call-start", handleCallStart);
+        vapiInstance.off("call-end", handleCallEnd);
+        vapiInstance.off("speech-start", handleSpeechStart);
+        vapiInstance.off("speech-end", handleSpeechEnd);
+        vapiInstance.off("message", handleMessage);
       } catch (error) {
         console.warn("Error cleaning up Vapi listeners:", error);
       }
     };
-  }, []);
+  }, [vapiInstance]);
 
   const toggleCall = async () => {
+    if (!vapiInstance) {
+      alert("Vapi is not initialized. Please refresh the page.");
+      return;
+    }
+
     if (callActive) {
       try {
-        vapi.stop();
+        vapiInstance.stop();
         // Don't wait for the call to end, just update state
         setCallActive(false);
         setConnecting(false);
@@ -208,7 +228,7 @@ const GenerateProgramPage = () => {
         console.log("Starting call with assistant ID:", assistantId);
         console.log("Assistant overrides:", assistantOverrides);
         
-        vapi.start(assistantId, assistantOverrides);
+        vapiInstance.start(assistantId, assistantOverrides);
         
       } catch (error) {
         console.error("Failed to start call:", error);

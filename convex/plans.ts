@@ -3,7 +3,6 @@ import { v } from "convex/values";
 
 export const createPlan = mutation({
   args: {
-    userId: v.string(),
     name: v.string(),
     workoutPlan: v.object({
       schedule: v.array(v.string()),
@@ -32,16 +31,18 @@ export const createPlan = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
-    console.log("[createPlan] called with args:", {
-      userId: args.userId,
-      name: args.name,
-      isActive: args.isActive,
-      workoutPlanDays: args.workoutPlan?.exercises?.length ?? 0,
-      dietMeals: args.dietPlan?.meals?.length ?? 0,
-    });
+    // Extract the real Clerk user ID from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized - no authenticated user");
+    }
+    
+    const userId = identity.subject; // This is the real Clerk user ID
+    console.log("[createPlan] Creating plan for user:", userId);
+
     const activePlans = await ctx.db
       .query("plans")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
@@ -53,8 +54,12 @@ export const createPlan = mutation({
     }
 
     try {
-      const planId = await ctx.db.insert("plans", args);
+      const planId = await ctx.db.insert("plans", {
+        ...args,
+        userId, // Use the real Clerk user ID
+      });
       console.log("[createPlan] inserted planId:", planId);
+      console.log("[createPlan] Created plan:", planId, "for user:", userId);
       return planId;
     } catch (error) {
       console.error("[createPlan] insert failed:", error);
@@ -64,32 +69,24 @@ export const createPlan = mutation({
 });
 
 export const getUserPlans = query({
-  args: { userId: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    // Prefer explicit userId if provided (e.g., from Clerk on the client),
-    // otherwise fall back to the authenticated identity.
-    let resolvedUserId = args.userId ?? null;
-
-    if (!resolvedUserId) {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        // Gracefully return empty for unauthenticated queries instead of throwing
-        console.warn("[getUserPlans] no identity and no userId provided; returning empty array");
-        return [];
-      }
-      console.log("[getUserPlans] identity.subject:", identity.subject);
-      resolvedUserId = identity.subject;
+  args: {}, // No args needed - we get user from auth context
+  handler: async (ctx) => {
+    // Get the authenticated user's ID
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return []; // Return empty array for unauthenticated users
     }
+    
+    const userId = identity.subject;
+    console.log("[getUserPlans] Fetching plans for user:", userId);
 
-    console.log("[getUserPlans] args.userId:", args.userId);
-    console.log("[getUserPlans] resolvedUserId:", resolvedUserId);
     const plans = await ctx.db
       .query("plans")
-      .withIndex("by_user_id", (q) => q.eq("userId", resolvedUserId!))
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 
-    console.log("[getUserPlans] plans count:", plans.length);
+    console.log("[getUserPlans] Found", plans.length, "plans for user:", userId);
     if (plans.length === 0) {
       // Diagnostic: sample recent userIds present in the table to detect mismatches
       const recent = await ctx.db.query("plans").order("desc").take(5);

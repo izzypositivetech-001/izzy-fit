@@ -23,10 +23,7 @@ const ProfilePage = () => {
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const repairPlans = useMutation(api.plans.repairPlaceholderPlans);
   const ready = !!user && isAuthenticated && !authLoading && clerkLoaded;
-  const allPlans = useQuery(
-    api.plans.getUserPlans,
-    ready ? { userId: user!.id } : "skip"
-  );
+  const allPlans = useQuery(api.plans.getUserPlans);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   useEffect(() => {
